@@ -53,10 +53,10 @@ uint8_t chars[] = {
     0b01111001, // 69 = E ( Capital letter E )
     0b01110001, // 70 = F ( Capital letter F )
     0b00111101, // 71 = G ( Capital letter G )
-    0b01101110, // 72 = H ( Capital letter H )
+    0b01110110, // 72 = H ( Capital letter H )
     0b00000110, // 73 = I ( Capital letter I )
     0b00011110, // 74 = J ( Capital letter J )
-    0b01111000, // 75 = K ( Capital letter K )
+    0b01101000, // 75 = K ( Capital letter K )
     0b00111000, // 76 = L ( Capital letter L )
     0b00010101, // 77 = M ( Capital letter M )
     0b01010100, // 78 = N ( Capital letter N )
@@ -88,7 +88,7 @@ uint8_t chars[] = {
     0b01110100, // 104 = h ( Lowercase letter h , minuscule h )
     0b00000110, // 105 = i ( Lowercase letter i , minuscule i )
     0b00011111, // 106 = j ( Lowercase letter j , minuscule j )
-    0b01111000, // 107 = k ( Lowercase letter k , minuscule k )
+    0b01101000, // 107 = k ( Lowercase letter k , minuscule k )
     0b00111000, // 108 = l ( Lowercase letter l , minuscule l )
     0b00010101, // 109 = m ( Lowercase letter m , minuscule m )
     0b01010100, // 110 = n ( Lowercase letter n , minuscule n )
@@ -136,19 +136,32 @@ void display(uint8_t high_dig, uint8_t high_seg, uint8_t low_dig, uint8_t low_se
   for(uint8_t i=0; i<8; i++) data[i+32] = high_dig & (1 << i);
 
   //additional 17th segment
-  data[29] = dop !=0;
-  data[25] = dop & 1; //lower section
-  data[26] = dop & 2; //midle section
-  data[28] = dop & 4; //higher section //there is minor bug in hardware wiring so its not 27
-  
+  data[29] = 0;//dop == 0;
+  if( dop !=0 ) {
+    data[25] = dop & 1; //lower section
+    data[26] = dop & 2; //midle section
+    data[28] = dop & 4; //higher section //there is minor bug in hardware wiring so its not 27
+  }
   send_to_vfd(data); 
 }
+void print(String str){  
+  for(uint8_t i=0;i<8;i++){
+    uint8_t dig = 1 << i;
+    uint8_t low_seg = dict(str[15-i]);
+    uint8_t high_seg = dict(str[7-i]);
+    display(dig,high_seg,dig,low_seg);
+    //delay(100);
+  }
+}
+String dataString = "Hello world!";
 void loop() {
+  
   if (Serial.available()) {
-    String dataString = Serial.readString(); // Read the incoming data as a String
-    Serial.println((uint8_t)dataString[0]);
-    display(0x00,0x00,0x01,dict(dataString[0]),0x07);
+    dataString = Serial.readString(); // Read the incoming data as a String
+    Serial.println(dataString);
+    
   }
   
-  delay(100);
+  print(dataString);
+  //delay(100);
 }
