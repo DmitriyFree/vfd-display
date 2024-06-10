@@ -1,16 +1,66 @@
+#include <ArduinoBLE.h>
+#include <Preferences.h>
+#include <BLECharacteristic.h>
+
+//BLE Thingies
+BLEService displayService("19B20000-E8F2-537E-4F6C-D104768A1214");
+BLEStringCharacteristic buffer("19B20001-E8F2-537E-4F6C-D104768A1214", BLERead | BLEWrite | BLEWriteWithoutResponse, 1024);
+BLEDescriptor bufferDescriptor("2901", "String to show");
+
 //hardware setup
 #define PIN_INPUT 25
 #define PIN_LOAD  27
 #define PIN_CLOCK 26
 #define PIN_BLANK 14
 
+//data to display
+String dataString = " - June youtube - ";
+
 void setup() {
-  Serial.begin(115200);
+
+  //hardware init
   pinMode(PIN_INPUT, OUTPUT);
   pinMode(PIN_LOAD,  OUTPUT);
   pinMode(PIN_CLOCK, OUTPUT);
   pinMode(PIN_BLANK, OUTPUT);
+
+  //init Serial
+  Serial.begin(115200);
+
+  //check for stored string
+  Preferences preferences;
+  preferences.begin("app", false);
+  String storedString = preferences.getString("dataString", "");
+  preferences.end();
+  if (!storedString.isEmpty()) {
+    Serial.println("Stored String: " + storedString);
+    dataString = storedString;
+  } else {
+    Serial.println("No stored string found.");
+  }
+
+  //init BLE
+  BLE.begin();
+  buffer.addDescriptor(bufferDescriptor);
+  buffer.writeValue(dataString);
+  displayService.addCharacteristic(buffer);
+  BLE.addService(displayService);
+  BLE.setDeviceName("June VFD");
+  BLE.advertise();
+  BLEDevice central = BLE.central();
+
+  //report to master
+  Serial.print("My address: ");
+  Serial.println(BLE.address());
+
+  Serial.print("Main service: ");
+  Serial.println(displayService.uuid());
+
+  Serial.print("Main characteristic: ");
+  Serial.println(buffer.uuid());  
+
 }
+
 //char to 8 seg ancoder
 uint8_t chars[] = {
     0b00000000, //32 = space ( Space )
@@ -109,11 +159,12 @@ uint8_t chars[] = {
     0b00001001, // 125 = } ( curly brackets or braces, closing curly brackets )
     0b01000000  // 126 = ~ ( Tilde ; swung dash )
 };
-//communication
+
 uint8_t dict(char c){
    if(c<32 || c>126)return 0;
    return chars[c-32];
 } 
+
 //communication
 void send_to_vfd(bool * buffer){
    //data should be 2*20 bits thing as we are using 2 MAX6921 in series
@@ -144,6 +195,7 @@ void display(uint8_t high_dig, uint8_t high_seg, uint8_t low_dig, uint8_t low_se
   }
   send_to_vfd(data); 
 }
+
 void print(String str){  
   for(uint8_t i=0;i<8;i++){
     uint8_t dig = 1 << i;
@@ -153,15 +205,33 @@ void print(String str){
     //delay(100);
   }
 }
-String dataString = "Hello world!";
+
+void store(String text){
+  // Store the received string in flash memory
+  Preferences preferences;
+  preferences.begin("app", false);
+  preferences.putString("dataString", text);
+  preferences.end();
+}
+
 void loop() {
   
+  // Listen for serial input
   if (Serial.available()) {
     dataString = Serial.readString(); // Read the incoming data as a String
     Serial.println(dataString);
-    
+    store(dataString);
   }
-  
+
+  // Listen for BLE connections
+  BLEDevice central = BLE.central();
+  if (central) {
+    if (buffer.written()) {
+      dataString = buffer.value();
+      Serial.println("Received: " + dataString);
+      store(dataString);
+    }
+  }
   print(dataString);
-  //delay(100);
+  
 }
