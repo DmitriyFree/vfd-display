@@ -5,7 +5,7 @@
 constexpr uint8_t PIN_DIN   = 25;
 constexpr uint8_t PIN_CLK   = 26;
 constexpr uint8_t PIN_LOAD  = 27;
-constexpr uint8_t PIN_BLANK = 14;   // MAX6921 BLANK: HIGH = all outputs off (used for brightness)
+constexpr uint8_t PIN_BLANK = 14;   // MAX6921 BLANK: HIGH = all outputs off (held LOW while scanning)
 
 // ---------------- Display geometry ----------------
 constexpr uint8_t NUM_DIGITS = 16;  // position 0 = leftmost
@@ -20,7 +20,7 @@ constexpr uint8_t BIT_HIGH_GRID = 32;  // 8 bits, grids of digits 0..7
 
 // 17th position (minus / small circle / big circle).
 // ASSUMPTION: its grid is stream bit 29 (old code zeroed it). Segment lines are
-// 25, 26, 28 (from the old "dop" code). Verify with the  /raw  command, see README text.
+// 25, 26, 28 (from the old "dop" code). Test with  /sym 1, /sym 2, /sym 4.
 constexpr uint8_t BIT_SYM_GRID   = 29;
 constexpr uint8_t BIT_SYM_SEG[3] = {25, 26, 28};
 

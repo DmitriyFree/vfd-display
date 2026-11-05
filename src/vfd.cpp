@@ -6,10 +6,7 @@ namespace vfd {
 static portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
 static uint8_t  g_cells[NUM_DIGITS] = {0};
 static uint8_t  g_sym    = 0;
-static uint8_t  g_bright = 255;
-static uint16_t g_slow   = 0;
-static uint64_t g_raw    = 0;
-static bool     g_rawOn  = false;
+static uint16_t g_slow   = 0;   // ms per scan step, 0 = normal speed
 
 // Clock 40 bits into the two daisy-chained MAX6921, bit 0 first, then latch.
 static void shift40(uint64_t bits) {
@@ -46,43 +43,24 @@ static void scanTask(void*) {
 
   for (;;) {
     uint8_t cells[NUM_DIGITS];
-    uint8_t sym, br;
+    uint8_t sym;
     uint16_t slow;
-    uint64_t raw;
-    bool rawOn;
 
     portENTER_CRITICAL(&mux);
     memcpy(cells, g_cells, NUM_DIGITS);
-    sym = g_sym; br = g_bright; slow = g_slow; raw = g_raw; rawOn = g_rawOn;
+    sym = g_sym; slow = g_slow;
     portEXIT_CRITICAL(&mux);
-
-    if (rawOn) {
-      digitalWrite(PIN_BLANK, HIGH);
-      shift40(raw);
-      digitalWrite(PIN_BLANK, LOW);
-      vTaskDelay(pdMS_TO_TICKS(20));
-      last = xTaskGetTickCount();
-      continue;
-    }
 
     uint8_t steps = sym ? NUM_GRIDS + 1 : NUM_GRIDS;
     if (step >= steps) step = 0;
 
     digitalWrite(PIN_BLANK, HIGH);            // blank while data changes: no ghosting
     shift40(buildStep(step, cells, sym));
-
-    if (slow) {                               // human-speed: hold each step
-      digitalWrite(PIN_BLANK, LOW);
+    digitalWrite(PIN_BLANK, LOW);
+    if (slow) {                               // human speed: one lit digit per half, then the next pair
       vTaskDelay(pdMS_TO_TICKS(slow));
       last = xTaskGetTickCount();
-    } else if (br == 0) {
-      vTaskDelayUntil(&last, 1);              // stays blanked
     } else {
-      digitalWrite(PIN_BLANK, LOW);
-      if (br < 255) {                         // brightness = on-time inside the 1 ms slot
-        delayMicroseconds(((uint32_t)br * 800) / 255);
-        digitalWrite(PIN_BLANK, HIGH);
-      }
       vTaskDelayUntil(&last, 1);
     }
     step++;
@@ -107,15 +85,6 @@ void setFrame(const uint8_t* cells16, uint8_t sym) {
   portEXIT_CRITICAL(&mux);
 }
 
-void setBrightness(uint8_t b) { g_bright = b; }
-uint8_t brightness() { return g_bright; }
 void setSlowScan(uint16_t ms) { g_slow = ms; }
-
-void setRaw(uint64_t mask, bool enable) {
-  portENTER_CRITICAL(&mux);
-  g_raw = mask & ((1ULL << 40) - 1);
-  g_rawOn = enable;
-  portEXIT_CRITICAL(&mux);
-}
 
 }  // namespace vfd

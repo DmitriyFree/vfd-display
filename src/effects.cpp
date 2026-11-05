@@ -114,8 +114,8 @@ void setText(Mode m, const String& text) {
   setMode(m);
 }
 
-void refresh() { setText(mode, curText); }
 const String& currentText() { return curText; }
+Mode currentMode() { return mode; }
 
 void update() {
   uint32_t now = millis();
@@ -165,14 +165,6 @@ void update() {
       break;
     }
 
-    case M_RUNDOT: {
-      place(cells, out);
-      if (now - tLast >= sp) { tLast = now; step++; }
-      int p = (cfg.dir == 'r') ? step % NUM_DIGITS : (NUM_DIGITS - 1) - (step % NUM_DIGITS);
-      out[p] |= 0x80;
-      break;
-    }
-
     case M_RANDOM:
       if (now - tLast >= sp) {
         tLast = now;
@@ -186,20 +178,6 @@ void update() {
       memcpy(out, rnd, NUM_DIGITS);
       break;
 
-    case M_SWEEP: {
-      const int total = NUM_DIGITS * 8 + 3;  // every segment of every digit, then the 3 symbols
-      if (now - tLast >= sp) { tLast = now; step = (step + 1) % total; }
-      int s = step;
-      sym = 0;
-      if (!cfg.acc) {
-        if (s < NUM_DIGITS * 8) out[s / 8] = 1 << (s % 8);  // order: a b c d e f g dp, left to right
-        else sym = 1 << (s - NUM_DIGITS * 8);
-      } else {
-        for (int i = 0; i <= s && i < NUM_DIGITS * 8; i++) out[i / 8] |= 1 << (i % 8);
-        if (s >= NUM_DIGITS * 8) sym = (2 << (s - NUM_DIGITS * 8)) - 1;
-      }
-      break;
-    }
   }
 
   if (cfg.blinkMs && ((now / cfg.blinkMs) & 1)) {
